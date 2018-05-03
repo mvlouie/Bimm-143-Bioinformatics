@@ -1,2 +1,3 @@
-# bimm143
-my first GitHb repo
+# Bioinformatics BIMM143
+
+I promise to organize my files for BIMM143 :-)
