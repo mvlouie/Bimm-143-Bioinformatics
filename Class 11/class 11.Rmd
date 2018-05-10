@@ -1,0 +1,190 @@
+---
+title: "Class 11"
+author: "Michelle Louie"
+date: "5/8/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## PDB STATS
+
+Download CSV file from PDB database <>, read this into R and determine fraction of X -reay structure. 
+```{r}
+pdb.stats <- read.csv("Data Export Summary.csv")
+```
+
+Lets calculate the fraction
+
+```{r}
+percent <- ( pdb.stats$Total / sum(pdb.stats$Total) ) *100
+names(percent) <- pdb.stats$Experimental.Method 
+percent 
+```
+
+Q1: What proportion of PDB entries does X-ray crystallography account for? What proportion of structures are protein?
+
+X-Ray is 89.5% 
+
+Q2: Type HIV in the search box on the home page and determine how many HIV-1 protease structures are in the current PDB?
+
+6
+
+## Introduction to Bio3D in R
+
+loading the Bio3D package
+
+```{r}
+# intsall.packages("bio3d)"
+library(bio3d)
+```
+
+
+list function of package and try an example
+```{r}
+lbio3d()
+example(plot.bio3d)
+```
+
+
+```{r}
+pdb<- read.pdb("1hsg")
+pdb
+```
+
+select and write a c-alpha atoms only pdb 
+```{r}
+inds <- atom.select( pdb, "calpha")
+inds
+# 198 c-alpha atoms selected 
+# c-alpha = the backbone of protein :3
+```
+
+checking if e have what we want
+```{r}
+head( pdb$atom[inds$atom, ] )
+```
+
+looks good. Let's continue to trim pdb and write it out 
+```{r}
+ca.pdb <- trim.pdb( pdb, inds=inds)
+ca.pdb
+write.pdb (ca.pdb, file="calpha_only.pdb")
+```
+
+## working with multiple PDB files 
+
+```{r}
+# Download some example PDB files
+ids <- c("1TND_B","1AGR_A","1TAG_A","1GG2_A","1KJY_A","4G5Q_A")
+files <- get.pdb(ids, split = TRUE)
+```
+
+```{r}
+ # Extract and align the chains we are interested in
+pdbs <- pdbaln(files, fit = TRUE)
+
+# Print to screen a summary of the 'pdbs' object
+pdbs
+```
+
+```{r}
+# Access the first 5 rows, and 8 columns
+pdbs$ali[1:5, 1:8]
+
+# Associated residues numbers
+pdbs$resno[1:5, 1:8]
+```
+
+```{r}
+# Inspect alignment for gaps
+gaps <- gap.inspect(pdbs$ali)
+
+# Indices of non-gap columns
+head(gaps$f.inds)
+
+# Access non-gap columns
+pdbs$ali[, gaps$f.inds]
+```
+
+```{r}
+# Calculate sequence identity
+seqidentity(pdbs)
+
+# Calculate RMSD (root mean square deviation)
+rmsd(pdbs)
+```
+
+```{r}
+# Calculate RMSD
+rd <- rmsd(pdbs)
+
+# Clustering
+hc <- hclust(as.dist(rd))
+grps <- cutree(hc, k=3)
+
+# Plot results as dendrogram
+hclustplot(hc, k=3)
+```
+
+```{r}
+# Perform PCA
+pc <- pca(pdbs)
+plot(pc, col=grps)
+```
+
+## Example Application on Adenylate Kinase (Adk)
+
+find sequence
+```{r}
+aa <- get.seq("1ake_A")
+aa
+## Fetching... Please wait. Done.
+```
+
+search the pdb database
+```{r, cache=TRUE}
+
+# Blast or hmmer search
+b <- blast.pdb(aa)
+## Searching ... please wait (updates every 5 seconds) RID = F3XPYPMH01R 
+## .
+## Reporting 90 hits
+```
+plot
+```{r}
+# plotting the -log (e-values)
+hits <- plot(b)
+hits
+```
+
+```{r}
+head(hits$pdb.id)
+## [1] "1AKE_A" "1AKE_B" "1ANK_A" "1ANK_B" "4AKE_A" "4AKE_B"
+```
+
+```{r}
+# Align structures
+pdbs <- pdbaln(files)
+
+# Vector containing PDB codes
+ids <- basename.pdb(pdbs$id)
+
+# Draw schematic alignment 
+plot(pdbs, labels=ids)
+```
+
+```{r}
+# Calculate sequence conservation
+cons <- conserv(pdbs, method="entropy22")
+
+# SSE annotations
+sse <- pdbs2sse(pdbs, ind=1, rm.gaps=FALSE)
+
+# Plot conservation per residue
+plotb3(cons, sse=sse, ylab="Sequence entropy")
+  
+```
+
