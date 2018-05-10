@@ -1,0 +1,62 @@
+---
+title: "class 12"
+author: "Michelle Louie"
+date: "5/10/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("bio3d")
+file.name <- get.pdb("1hsg")
+hiv <- read.pdb(file.name)
+hiv
+```
+
+Q1: What is the name of the two non protein resid values in this structure?  HOH (127), MK1 (1)]
+
+What does resid correspond to and how would you get a listing of all reside values in this structure?
+
+
+
+```{r}
+# select out protein only and ligind only
+prot <- trim.pdb(hiv, "protein")
+lig <- trim.pdb(hiv, "ligand")
+
+# write out these new pdb files so we can use them for docking 
+write.pdb(prot, file="1hsg_protein.pdb")
+write.pdb(lig, "1hsg_ligand.pdb")
+```
+
+## processing docking results for vmd display 
+
+```{r}
+library(bio3d)
+res <- read.pdb("all.pdbqt", multi=TRUE)
+write.pdb(res, "results.pdb")
+
+ori <- read.pdb("ligand.pdbqt")
+rmsd(ori, res)
+```
+ 
+ the 1st result is the best fit frame at which the ligand position almost exactly alignes with the MK1 position 
+ 
+ # rmsd of our results 'res' tp <arck compound
+
+select non-hydrogen atoms from our docking results 
+ 
+```{r}
+inds.res <- atom.select(res, "noh")
+inds.res
+
+res$xyz[ ,inds.res$xyz]
+```
+ 
+```{r}
+rmsd(lig, res$xyz[ ,inds.res$xyz])
+```
+ 
