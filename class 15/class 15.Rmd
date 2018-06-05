@@ -1,0 +1,201 @@
+---
+title: "class15"
+author: "Michelle Louie"
+date: "5/22/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Differential Expression Analysis
+```{r}
+#library(dplyr)
+library(DESeq2)
+
+metaFile <- "data_GSE37704_metadata.csv"
+countFile <- "data_GSE37704_featurecounts.csv"
+```
+
+```{r}
+# Import metadata and take a peak
+colData <- read.csv(metaFile, row.names=1)
+head(colData)
+```
+
+```{r}
+# Import countdata
+countData <- read.csv(countFile, row.names=1)
+head(countData)
+```
+
+```{r}
+# Note we need to remove the odd first $length col; because 1st colcumn of colData must match items in the header of countData
+countData <- as.matrix(countData[,-1])
+head(countData)
+```
+
+```{r}
+# Filter count data where you have 0 read count across all samples.
+countData <- countData[rowSums(countData)>1, ]
+head(countData)
+```
+
+how many gene in countData 
+```{r}
+dim(countData)
+## 15280 genes 
+```
+
+```{r}
+dds = DESeqDataSetFromMatrix(countData=countData,
+                             colData=colData,
+                             design=~condition)
+dds = DESeq(dds)
+
+dds
+```
+
+```{r}
+res = results(dds, contrast=c("condition", "hoxa1_kd", "control_sirna"))
+res = res[order(res$pvalue),]
+summary(res)
+```
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+
+columns(org.Hs.eg.db)
+```
+
+```{r}
+res$symbol = mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    column="SYMBOL",
+                    keytype="ENSEMBL",
+                    multiVals="first")
+
+res$entrez = mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    column="ENTREZID",
+                    keytype="ENSEMBL",
+                    multiVals="first")
+
+res$name =   mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    column="GENENAME",
+                    keytype="ENSEMBL",
+                    multiVals="first")
+
+head(res, 10)
+```
+
+## Pathway Analysis
+```{r}
+source("http://bioconductor.org/biocLite.R")
+biocLite( c("pathview", "gage", "gageData") )
+```
+
+
+```{r}
+library(pathview)
+library(gage)
+library(gageData)
+
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+head(kegg.sets.hs, 3)
+```
+The main 'gage()' function requires a named vector of fold changes, where the names if the values are in the Entrez gene IDs.
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+```
+
+```{r}
+# Get the results
+keggres <- gage(foldchanges, gsets=kegg.sets.hs, same.dir=TRUE)
+
+attributes(keggres)
+```
+
+```{r}
+head(keggres$greater)
+```
+
+```{r}
+head(keggres$less)
+```
+
+```{r}
+lapply(keggres, head)
+```
+
+```{r}
+## Sanity check displaying all pathways data
+pathways <- data.frame(id=rownames(keggres$greater), keggres$greater)
+head(pathways)
+```
+```{r}
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("pathview")
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+```
+
+here is the default low resolution raster PNG output from the first pathway() call above:
+![](hsa04110.pathview.png)
+
+## Section 3 
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(foldchanges, gsets=gobpsets, same.dir=TRUE)
+
+lapply(gobpres, head)
+```
+##  Reactome Pathway Analysis
+
+First, Using R, output the list of significant genes at the 0.05 level as a plain text file:
+```{r}
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), "symbol"]
+
+print(paste("Total number of significant genes:", length(sig_genes)))
+```
+
+```{r}
+write.table(sig_genes, file="significant_genes.txt", 
+            row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+perform pathway analysis online go to the Reactome website <<https://reactome.org/PathwayBrowser/#TOOL=AT>>.  Select “choose file” to upload your significant gene list. Then, select the parameters “Project to Humans”, then click “Analyze”.
+
+Question: What pathway has the most significant “Entities p-value”? Do the most significant pathways listed match your previous KEGG results? What factors could cause differences between the two methods?
+
+A:Cell Cycle Checkpoints (9.49E-2)
+  yes 
+  
+## GO Analysis
+To perform Gene Set GO Enrichment online go to the website <<http://www.geneontology.org/page/go-enrichment-analysis>> . aste your significant gene list from section 4. Then, select “biological process” and “homo sapiens”, and click submit.
+
+Question: What pathway has the most significant “Entities p-value”? Do the most significant pathways listed match your previous KEGG results? What factors could cause differences between the two methods?
+
+A: 
+
+
+
+
+
+
+
+
+

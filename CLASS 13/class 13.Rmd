@@ -1,0 +1,106 @@
+---
+title: "CLASS 13"
+author: "Michelle Louie"
+date: "5/15/2018"
+output: 
+  html_document:
+    keep_md: yes 
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Q1: What are those 4 candidate SNPs?
+rs12936231, rs8067378, rs9303277, and rs7216389
+
+Q2: What three genes do these variants overlap or effect?
+ZPBP2, GSDMB, and ORMDL3
+
+Q3: What is the location of rs8067378 and what are the different alleles for rs8067378?
+Chromosome 17: 39895095 (forward strand) A/G variants (43% G)
+
+Q4: What are the downstream genes for rs8067378? Any genes named ZPBP2, GSDMB, and ORMDL3
+
+
+## 1000 genomes data analysis 
+ 
+download genotype data from Ensemble for childhood asthma associated SNP rs8067378 
+see: (MXL) Mexican Ancestry in Los Angeles, California
+
+```{r}
+# read.csv
+genotype <- read.csv("373531-SampleGenotypes-Homo_sapiens_Variation_Sample_rs8067378.csv")
+head(genotype)
+```
+
+find how many of each genotype there are in this dataset 
+```{r}
+genotype.summary <- table(genotype[ ,2])
+genotype.summary
+```
+
+proportion of each genotype
+```{r}
+genotype.summary/ nrow(genotype) * 100
+```
+
+> **Q5:** What proportion of the Mexican Ancestry in Los Angeles sample population (MXL) are homozygous for the asthma associated SNP (G|G)?
+Answer: 14%
+
+## RNA seq 
+look at sample HG00109
+
+> **Q6:** Back on the ENSEMBLE page, search for the particular sample HG00109. This is a male from the GBR population group. What is the genotype for this sample?
+G|G
+
+```{r}
+# install.packages("seqinr")
+# install.packages("gtools")
+
+library(seqinr)
+library(gtools)
+
+phred<- asc( s2c("DDDDCDEDCDDDDBBDDDCC") )-33
+phred
+```
+
+```{r}
+prob <- 10**(-phred/10)
+prob
+```
+
+## RNA-seqpop scale analysis
+
+read our result files feom RNA seq across ~230 samples/ppl
+
+```{r}
+expr <- read.table("rs8067378_ENSG00000172057.6.txt")
+```
+
+look at data 
+```{r}
+table(expr$geno)
+```
+
+```{r}
+#how many sapmles?
+nrow(expr)
+
+# Box plot 
+boxplot(exp ~ geno, data=expr, notch=TRUE)
+
+install.packages("ggplot2")
+library(ggplot2)
+ggplot(expr, aes(exp, fill= geno)) + geom_density(alpha=0.2)
+```
+
+
+
+
+
+
+
+
+

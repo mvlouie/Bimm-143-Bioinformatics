@@ -1,0 +1,155 @@
+---
+title: "class 18"
+author: "Michelle Louie"
+date: "5/31/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Investigating cancer genomics datasets
+
+Q1. How many Cases (i.e. patient samples) have been found to have p53 mutations?
+
+A: 4,008
+
+
+Q2. What are the top 6 misssense mutations found in this gene? 
+HINT: Scroll down to the ‘TP53 - Protein’ section and mouse over the displayed plot. For example R175H is found in 156 cases.
+
+A: 1) R175H , 2)R273C , 3)R248Q , 4)R273H , 5)R248W
+
+Q3. Which domain of the protein (as annotated by PFAM) do these mutations reside in?
+A: PF00870
+
+Q4. What are the top 6 primary sites (i.e. cancer locations such as Lung, Brain, etc.) with p53 mutations and how many primary sites have p53 mutations been found in? 
+HINT: Clicking on the number links in the Cancer Distribution section will take you to a summary of available data accross cases, genes, and mutations for p53. Looking at the cases data will give you a ranked listing of primary sites.
+
+A: Uterus, Ovary, Lung, Esophagus, Colorectal, Head and Neck
+
+Q5. What is the most frequentely mutated position associated with cancer in the KRas protein (i.e. the amino acid with the most mutations)?
+A: G12D
+
+Q6. Are KRas mutations common in Pancreatic Adenocarcinoma (i.e. is the Pancreas a common ‘primary site’ for KRas mutations?).
+A: yes
+
+Q6. What is the ‘TGCA project’ with the most KRas mutations?
+A:G12D
+
+Q7. What precent of cases for this ‘TGCA project’ have KRas mutations and what precent of cases have p53 mutations? 
+HINT: Placing your mouse over the project bar in the Cancer Distribution panel will bring up a tooltip with useful summary data.
+A: about 10% for KRas and about 40% cases for P53
+
+Q8. How many TGCA Pancreatic Adenocarcinoma cases (i.e. patients from the TCGA-PAAD project) have RNA-Seq data available?
+A: 185
+
+# part2
+
+Installing this packages
+```{r}
+# source("https://bioconductor.org/biocLite.R")
+# biocLite(c("GenomicDataCommons", "maftools"))
+```
+
+```{r}
+library(GenomicDataCommons)
+library(maftools)
+GenomicDataCommons::status()
+```
+
+```{r}
+cases_by_project <- cases() %>%
+  facet("project.project_id") %>%
+  aggregations()
+head(cases_by_project)
+```
+
+Q9. Write the R code to make a barplot of the cases per project. Lets plot this data with a log scale for the y axis (log="y"), rotated axis labels (las=2) and color the bar coresponding to the TCGA-PAAD project.
+
+```{r}
+a<-cases_by_project$project.project_id
+x<-a$key
+y<-a$doc_count
+#making custom color vector for plot
+c<-rep("light blue",nrow(a))
+ind<- which(a[,1]== "TCGA-PAAD")  
+c[ind]="red"
+
+# plot with 'log' for y-axis and rotate labels with 'las' and label x-axis with 'names.arg'
+barplot(y, 
+        las = 2,
+        log = "y",
+        col = c, 
+        names.arg= x)
+```
+
+
+## Designing a personalized cancer vaccine
+
+Q1: Identify sequence regions that contain all 9-mer peptides that are only found in the tumor. Hint: You will need to first identify the sites of mutation in the above sequences and then extract the surrounding subsequence region. This subsequence should encompass all possible 9-mers in the tumor derived sequence. In other words extract the subsequence from 8 residues before and 8 residues after all point mutations in the tumor sequence.
+
+```{r}
+library(bio3d)
+seqs <- read.fasta("~/Downloads/lecture18_sequences.fa")
+seqs
+```
+
+seqence alignment with muscle
+```{r}
+seqs <- seqaln(seqs)
+seqs
+```
+
+looking for what's different 
+```{r}
+## Calculate positional identity scores
+ide <- conserv(seqs$ali, method="identity")
+ide
+
+# matching spots will have a 1.0 in output; mutant site will be less than 1
+mutant.sites <- which(ide < 1) 
+mutant.sites
+
+## Exclude gap possitions from analysis
+gaps <- gap.inspect(seqs)
+mutant.sites <- mutant.sites[mutant.sites %in% gaps$f.inds]
+
+mutant.sites
+```
+
+
+```{r}
+## Make a "names" label for our output sequences (one per mutant)
+# paste0(): Concatenate vectors after converting to character.
+mutant.names <- paste0(seqs$ali["P53_wt",mutant.sites],
+                       mutant.sites,
+                       seqs$ali["P53_mutant",mutant.sites])
+
+mutant.name
+```
+
+Lets extract all 9-mer mutant encompassing sequences for each mutant site. This is equivalent to finding the sequence region eight residues before and eight residues after our mutation sites and outputting this subsequence to a new FASTA file.
+```{r}
+## Sequence positions surounding each mutant site
+start.position <- mutant.sites - 8
+end.position <-  mutant.sites + 8
+
+# Blank matrix to store sub-sequences
+store.seqs <- matrix("-", nrow=length(mutant.sites), ncol=17)
+rownames(store.seqs) <- mutant.names
+
+## Extract each sub-sequence
+for(i in 1:length(mutant.sites)) {
+  store.seqs[i,] <- seqs$ali["P53_mutant",start.position[i]:end.position[i]]
+}
+
+store.seqs
+```
+
+```{r}
+write.fasta(seqs=store.seqs, ids=mutant.names, file="subsequences.fa")
+```
+
+
